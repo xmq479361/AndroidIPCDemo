@@ -9,6 +9,7 @@ import android.view.View;
 
 import com.xmq.account.api.IAccountApi;
 import com.xmq.account.api.User;
+import com.xmq.account.impl.AccountApiImpl;
 import com.xmq.ipc.core.XmqIPC;
 import com.xmq.ipc.process_second.SecondActivity;
 
@@ -18,12 +19,12 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        XmqIPC.getInstance().init(this);
+        XmqIPC.getServer().init(this);
     }
 
     public void register(View view){
         Log.i(TAG, "register: ");
-        XmqIPC.getInstance().register(IAccountApi.class, AccountApiImpl.getInstance());
+        XmqIPC.getServer().register(IAccountApi.class, AccountApiImpl.getInstance());
     }
 
     public void setUser(View view){

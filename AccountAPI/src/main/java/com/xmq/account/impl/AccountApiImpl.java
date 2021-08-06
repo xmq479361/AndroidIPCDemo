@@ -1,4 +1,4 @@
-package com.xmq.ipc;
+package com.xmq.account.impl;
 
 import com.xmq.account.api.IAccountApi;
 import com.xmq.account.api.User;

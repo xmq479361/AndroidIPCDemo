@@ -19,17 +19,18 @@ public class SecondActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_second);
-        XmqIPC.getInstance().open(this);
+        XmqIPC.getClient().connect(this);
 //        XmqIPC.getInstance().register(IAccountApi.class);
     }
 
     public void getApi(View view){
         Log.i(TAG, "getApi: ");
-        accountApi = XmqIPC.getInstance().getApi(IAccountApi.class);
+        accountApi = XmqIPC.getClient().getApi(IAccountApi.class);
     }
 
     public void getUser(View view){
         if (accountApi != null) {
+            XmqIPC.getClient().connect(this);
             User user = accountApi.getUser("100001");
             Log.i(TAG, "getUser: " + user);
             Toast.makeText(this, "getUser: " + user, Toast.LENGTH_LONG).show();

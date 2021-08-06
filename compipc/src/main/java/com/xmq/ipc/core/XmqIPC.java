@@ -9,7 +9,7 @@ import android.os.RemoteException;
 import android.text.TextUtils;
 
 import com.xmq.compipc.IPCWorkAidlInterface;
-import com.xmq.ipc.cache.XmqCacheCenter;
+import com.xmq.ipc.util.InvokeUtil;
 import com.xmq.ipc.util.L;
 
 import java.lang.reflect.Method;
@@ -19,57 +19,69 @@ import java.lang.reflect.Proxy;
  * @author xmqyeah
  * @CreateDate 2021/8/4 20:21
  */
-public class XmqIPC {
-    public static XmqIPC xmqIPC = new XmqIPC();
+public class XmqIPC implements IXmqIPCServer, IXmqIPCClient {
+    final static XmqIPC xmqIPC = new XmqIPC();
 
-    private XmqIPC(){};
-
-    public static XmqIPC getInstance() {
-        return xmqIPC;
-    }
+    private XmqIPC(){}
 
     private Context mContext;
     XmqCacheCenter cacheCenter = new XmqCacheCenter();
+    /*************************************************************************************
+     *                           Code for IXmqIPCServer
+     *************************************************************************************/
+    public static IXmqIPCServer getServer() {
+        return xmqIPC;
+    }
+    @Override
     public void init(Context context) {
         this.mContext = context.getApplicationContext();
     }
-
-    public <T> void register(Class<T> clazz) {
-        cacheCenter.register(clazz);
-    }
+    @Override
     public <T> void register(Class<T> clazz, T service) {
         cacheCenter.register(clazz, service);
     }
+
+    /*************************************************************************************
+     *                           Code for IXmqIPCClient
+     *************************************************************************************/
+
+    public static IXmqIPCClient getClient() {
+        return xmqIPC;
+    }
+
+    @Override
+    public <T> void register(Class<T> clazz) {
+        cacheCenter.register(clazz);
+    }
+
+    @Override
     public <T> T getApi(Class<T> clazz, Object... parameters) {
-        return (T) Proxy.newProxyInstance(mContext.getClassLoader(), new Class[]{clazz}, new XmqInvokeHandler(clazz));
-    }
-
-    public <T> T request(Class<T> clazz, Method method, Object[] parameters, int type) {
-        String request = cacheCenter.generateRequestBeanJson(clazz, method, parameters, type);
-        if (ipcWorkBinder != null && !TextUtils.isEmpty(request)) {
-            try {
-                L.i("request: "+request);
-                String response = ipcWorkBinder.invoke(request);
-                L.i("response: " + response);
-                return (T) cacheCenter.GSON.fromJson(response, method.getReturnType());
-            } catch (RemoteException e) {
-                e.printStackTrace();
-            }
+        String initialRequest = InvokeUtil.generateRequestBeanJson(clazz, "getInstance", parameters, XmqServiceManager.TYPE_GET);
+        if (initialRequest != null) {
+            request(initialRequest, Void.class);
         }
-        return null;
-    }
-    public void open(Context context) {
-        open(context, null);
+        Object apiImpl = cacheCenter.getObject(clazz.getName());
+        if (apiImpl == null) {
+            apiImpl = Proxy.newProxyInstance(mContext.getClassLoader(), new Class[]{clazz}, new XmqInvokeHandler(clazz));
+            cacheCenter.register(clazz, apiImpl);
+        }
+        return (T) apiImpl;
     }
 
-    public void open(Context context, String packageName) {
+    @Override
+    public void connect(Context context) {
+        connect(context, null);
+    }
+
+    @Override
+    public void connect(Context context, String packageName) {
         init(context);
         bind(context.getApplicationContext(), packageName, XmqServiceManager.class);
     }
 
-    public void bind(Context context, String packageName, Class<? extends XmqServiceManager> service) {
+    void bind(Context context, String packageName, Class<XmqServiceManager> service) {
         init(context);
-        Intent intent = null;
+        Intent intent;
         if (TextUtils.isEmpty(packageName)) {
             intent = new Intent(context, service);
         } else {
@@ -79,6 +91,7 @@ public class XmqIPC {
         L.i("bind: " + ipcWorkBinder);
         context.bindService(intent, new IPCWorkConnection(), Context.BIND_AUTO_CREATE);
     }
+
     static IPCWorkAidlInterface ipcWorkBinder;
 
     static class IPCWorkConnection implements ServiceConnection {
@@ -92,8 +105,25 @@ public class XmqIPC {
         @Override
         public void onServiceDisconnected(ComponentName name) {
             L.i("onServiceDisconnected: " + ipcWorkBinder);
-            XmqIPC.getInstance().open(xmqIPC.mContext);
+            XmqIPC.getClient().connect(xmqIPC.mContext);
         }
     }
 
+     <T> Object request(Class<T> clazz, Method method, Object[] parameters, int type) {
+        String requestBeanJson = InvokeUtil.generateRequestBeanJson(clazz, method, parameters, type);
+        return request(requestBeanJson, method.getReturnType());
+    }
+    static <T> Object request(String request, Class<T> returnClazz) {
+        if (ipcWorkBinder != null && !TextUtils.isEmpty(request)) {
+            try {
+                L.i("request: "+request);
+                String response = ipcWorkBinder.invoke(request);
+                L.i("response: " + response);
+                return (T) xmqIPC.cacheCenter.GSON.fromJson(response, returnClazz);
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        }
+        return null;
+    }
 }
