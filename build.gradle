@@ -13,7 +13,12 @@ buildscript {
 }
 
 allprojects {
+    Properties properties = new Properties()
+    InputStream inputStream = project.rootProject.file('local.properties').newDataInputStream();
+    properties.load(inputStream)
+    project.ext.REPO_URL = properties.getProperty("REPO_URL")
     repositories {
+        maven { url REPO_URL }
         google()
         mavenCentral()
         jcenter() // Warning: this repository is going to shut down soon

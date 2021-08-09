@@ -19,12 +19,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        XmqIPC.getServer().init(this);
     }
 
     public void register(View view){
         Log.i(TAG, "register: ");
-        XmqIPC.getServer().register(IAccountApi.class, AccountApiImpl.getInstance());
+        XmqIPC.getServer(this).register(IAccountApi.class, AccountApiImpl.getInstance());
     }
 
     public void setUser(View view){

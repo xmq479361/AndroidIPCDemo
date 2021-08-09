@@ -9,6 +9,8 @@ import android.os.RemoteException;
 import android.text.TextUtils;
 
 import com.xmq.compipc.IPCWorkAidlInterface;
+import com.xmq.ipc.api.IXmqIPCClient;
+import com.xmq.ipc.api.IXmqIPCServer;
 import com.xmq.ipc.util.InvokeUtil;
 import com.xmq.ipc.util.L;
 
@@ -29,12 +31,11 @@ public class XmqIPC implements IXmqIPCServer, IXmqIPCClient {
     /*************************************************************************************
      *                           Code for IXmqIPCServer
      *************************************************************************************/
-    public static IXmqIPCServer getServer() {
+    public static IXmqIPCServer getServer(Context context) {
+        if (xmqIPC.mContext == null) {
+            xmqIPC.mContext = context.getApplicationContext();
+        }
         return xmqIPC;
-    }
-    @Override
-    public void init(Context context) {
-        this.mContext = context.getApplicationContext();
     }
     @Override
     public <T> void register(Class<T> clazz, T service) {
@@ -45,7 +46,10 @@ public class XmqIPC implements IXmqIPCServer, IXmqIPCClient {
      *                           Code for IXmqIPCClient
      *************************************************************************************/
 
-    public static IXmqIPCClient getClient() {
+    public static IXmqIPCClient getClient(Context context) {
+        if (xmqIPC.mContext == null) {
+            xmqIPC.mContext = context.getApplicationContext();
+        }
         return xmqIPC;
     }
 
@@ -69,27 +73,25 @@ public class XmqIPC implements IXmqIPCServer, IXmqIPCClient {
     }
 
     @Override
-    public void connect(Context context) {
-        connect(context, null);
+    public void connect() {
+        connect(null);
     }
 
     @Override
-    public void connect(Context context, String packageName) {
-        init(context);
-        bind(context.getApplicationContext(), packageName, XmqServiceManager.class);
+    public void connect(String packageName) {
+        bind(packageName, XmqServiceManager.class);
     }
 
-    void bind(Context context, String packageName, Class<XmqServiceManager> service) {
-        init(context);
+    void bind(String packageName, Class<XmqServiceManager> service) {
         Intent intent;
         if (TextUtils.isEmpty(packageName)) {
-            intent = new Intent(context, service);
+            intent = new Intent(mContext, service);
         } else {
             intent = new Intent(service.getName());
             intent.setComponent(new ComponentName(packageName, service.getName()));
         }
         L.i("bind: " + ipcWorkBinder);
-        context.bindService(intent, new IPCWorkConnection(), Context.BIND_AUTO_CREATE);
+        mContext.bindService(intent, new IPCWorkConnection(), Context.BIND_AUTO_CREATE);
     }
 
     static IPCWorkAidlInterface ipcWorkBinder;
@@ -105,7 +107,7 @@ public class XmqIPC implements IXmqIPCServer, IXmqIPCClient {
         @Override
         public void onServiceDisconnected(ComponentName name) {
             L.i("onServiceDisconnected: " + ipcWorkBinder);
-            XmqIPC.getClient().connect(xmqIPC.mContext);
+            XmqIPC.getClient(xmqIPC.mContext).connect();
         }
     }
 
